@@ -11,42 +11,33 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolb
 from matplotlib.figure import Figure
 import matplotlib.animation as animation
 from matplotlib import style
-import pandas as pd
-import time
-import datetime
-from selenium import webdriver
+import scrapping_celenium
 
 import tkinter as tk
+from tkinter import ttk
 
 style.use('ggplot')
     
-# On fait hérité la classe principale de l'app de tk.TK
+# Principale class of the app that will manage all the frames
 class Marketapp(tk.Tk):
 
-    # Méthode d'initialisation
     def __init__(self, *args, **kwargs):
         
-        # Initialisation de l'objet Tk(widget)
+        # Creation of widget
         tk.Tk.__init__(self, *args, **kwargs)
-
-        # On donne un titre au widget
         tk.Tk.wm_title(self, "Market client")
         
-        # On vient créer un frame qui va contenir toutes les frame que l'on va utiliser
+        # frame that will contain all the frames
         container = tk.Frame(self)
-        
-        # On le positionne et on lui dit de s'étendre au maximum
         container.pack(side="top", fill="both", expand = True)
-        
-        # On donne la taille (min) au colonne et au lignes ainsi que leur ordre de priorité (ici le meme)
         container.grid_rowconfigure(0, weight=1)
         container.grid_columnconfigure(0, weight=1)
 
-        # Dictionnaire qui va contenir toutes les frames de l'app sur lequel on va jouer pour les affichage de pages
+        # Creation of a dictionnay that will contain all the frames
         self.frames = {}
 
-        # On remplis le dictionnaire
-        for F in (StartPage, AnimGraphPage):
+        # We fill out the dictionary
+        for F in (StartPage, SP500):
 
             frame = F(container, self)
 
@@ -56,51 +47,51 @@ class Marketapp(tk.Tk):
 
         self.show_frame(StartPage)
 
+# Function that will put a frame in front of the others
     def show_frame(self, cont):
 
         frame = self.frames[cont]
         frame.tkraise()
 
 
-        
+# Home page 
 class StartPage(tk.Frame):
 
     def __init__(self, parent, controller):
+        
         tk.Frame.__init__(self,parent)
         label = tk.Label(self, text="Start Page")
         label.pack(pady=10,padx=10)
 
-        # Création du bouton pour ouvrir la page graphe
-        # Utilisation de ttk d'un point de vue esthtique
-        button3 = tk.ttk.Button(self, text="Graph Page",
-                            command=lambda: controller.show_frame(AnimGraphPage))
-        button3.pack()
-        
-class AnimGraphPage(tk.Frame):
-    # Création de la figure sur laquelle on va mettre notre graphe
+        # Button that open the S&P 500 graph
+        sp500_button = ttk.Button(self, text="Graph Page",
+                            command=lambda: controller.show_frame(SP500))
+        sp500_button.pack()
+ 
+# Page with the S&P500 graph
+class SP500(tk.Frame):
+    # Figure wher the graph will be
     f = Figure(figsize=(5,4), dpi=100)
     
-    #Création du sous graph
+    # Subplot of the figure
     graph = f.add_subplot(111)
-
-    driver = webdriver.Firefox()
-    driver.get("https://www.cnbc.com/quotes/?symbol=.SPX")
-
+    
+    # List of the values of the S&P500 and the time of each value
     market_values = []
     time_values = []
+
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
         
-        # Nom de la page et taille du titre
+        # Name of the frame
         label = tk.Label(self, text="Graph Page!")
         label.pack(pady=10,padx=10)
+        
+        # Button that go to the home page
+        home_button = tk.ttk.Button(self, text="Back to Home", command=lambda: controller.show_frame(StartPage))
+        home_button.pack()
 
-        # Création du bouton de retour au menu
-        # Utilisation de ttk d'un point de vue esthtique
-        button1 = tk.ttk.Button(self, text="Back to Home",
-                            command=lambda: controller.show_frame(StartPage))
-        button1.pack()
-
+        
         canvas = FigureCanvasTkAgg(self.f, self)
         canvas.draw()
         canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
@@ -108,36 +99,48 @@ class AnimGraphPage(tk.Frame):
         toolbar = NavigationToolbar2Tk(canvas, self)
         toolbar.update()
         canvas._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
-        ani = animation.FuncAnimation(self.f, self.animate, interval=1000)
-        ani._start()
+        self.ani = animation.FuncAnimation(self.f, self.animate, interval=1000)
         
+        self.start_pause_flag = False
+        
+        start_pause_button = tk.ttk.Button(self, text="Start", command=lambda: self.start_pause())
+        start_pause_button.pack()
+        
+        save_button = tk.ttk.Button(self, text='save', command=lambda: scrapping_celenium.save_to_csv(self.market_values, self.time_values))
+        save_button.pack()
+    """
+    Fuction that will be use in animation.FuncAnimation to animate the graph
+    param[in] self instance of SP500: we will use the graph of the instance
+    param[in] interval: frame refresh interval
+    """    
     def animate(self, interval):
-        # Récupération de l'indice
-        price_element = str(self.driver.find_element_by_xpath("/html/body/div[4]/div/div[3]/div[3]/div[1]/div[2]/div/div[1]/div/table/tbody/tr[5]/td[1]/span[1]").text)
-        price_element = price_element.replace(',', '')
-    
-        # Stockage dans la liste des valeurs
-        self.market_values.append(float(price_element))
-        print(price_element)
-    
-        # Récupération de la date et de l'heure
-        day = str(datetime.date.today())
-        hour = str(time.localtime().tm_hour)
-        minute = str(time.localtime().tm_min)
-        second = str(time.localtime().tm_sec)
-        current_time = str(day + " " + hour + ':' + minute + ':' + second)
-    
-        # Stockage dans la liste du temps
-        self.time_values.append(current_time)
-    
-        #Création de la data frame
-        df = pd.DataFrame({'market_values': self.market_values, 'time_values': self.time_values})
-    
+        
+        # Index of S&P500 at time t
+        market_value = str(scrapping_celenium.driver.find_element_by_xpath("/html/body/div[4]/div/div[3]/div[3]/div[1]/div[2]/div/div[1]/div/table/tbody/tr[5]/td[1]/span[1]").text)
+        
+        # Data Frame with all the index of the session
+        df = scrapping_celenium.create_market_dataFrame(market_value, self.market_values, self.time_values)
+        
+        # We fill the graph
         self.graph.clear()
         self.graph.plot(df.time_values, df.market_values)
         self.graph.set_xticks(range(0,len(self.time_values),3600))
         self.graph.tick_params('x', rotation = 90)
-
-
+        
+    """
+    Function to stop or continue graph display
+    param[in] self Instance of SP500: We need to change the start/pause flag 
+    """
+    def start_pause(self):
+        print(self.start_pause_flag)
+        if self.start_pause_flag == True:
+            self.ani.event_source.start()
+            self.start_pause_flag = False   
+        
+        else :
+            self.ani.event_source.stop()
+            self.start_pause_flag = True
+        print(self.start_pause_flag)
+        
 app = Marketapp()
 app.mainloop()
