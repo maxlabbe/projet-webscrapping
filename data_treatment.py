@@ -106,7 +106,7 @@ def save_to_csv(market_values, time_values):
     df.to_csv(file_name)
     
 # Data for the year
-df_year = pd.read_csv('^GSPC (1).csv')
+df_year = pd.read_csv("SP_year.csv")
 
 """
 Create a list of the moving average of a list

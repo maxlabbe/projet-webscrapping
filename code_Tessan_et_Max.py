@@ -127,8 +127,8 @@ class SP500(tk.Frame):
         
         #We fill the second graph
         self.year_graph.plot(data_treatment.df_year['Date'], data_treatment.df_year['Adj Close'], color = 'black', label = 'precise values')
-        self.year_graph.plot(data_treatment.df_year['moving_average20'], color = 'red', label = '20 d. moving arg')
-        self.year_graph.plot(data_treatment.df_year['moving_average50'], color = 'green', label = '50 d. moving arg')
+        self.year_graph.plot(data_treatment.df_year['moving_average20'], color = 'red', label = '20 d. moving avrg')
+        self.year_graph.plot(data_treatment.df_year['moving_average50'], color = 'green', label = '50 d. moving avrg')
         self.year_graph.set_xticks(range(0, len(data_treatment.df_year['Date']), 30))
         self.year_graph.set_title("S&P 500 evolution for one year")
         self.year_graph.legend()
@@ -155,8 +155,7 @@ class SP500(tk.Frame):
         # We fill the first graph every 60 seconds
         if len(self.market_value_60seconds) == 60:
             df = data_treatment.create_high_low_df(self.market_value_60seconds)
-            colors = {'increase':'red', 'decrease':'green'}         
-            labels = list(colors.keys())
+            colors = {'increase':'red', 'decrease':'green'}
             
             self.real_time_graph.clear()
             self.real_time_graph.bar(df.time_values, df.Diff_High_Low, bottom=df.Low_values, color=df.color)
