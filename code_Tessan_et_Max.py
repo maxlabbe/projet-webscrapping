@@ -155,7 +155,7 @@ class SP500(tk.Frame):
         # We fill the first graph every 60 seconds
         if len(self.market_value_60seconds) == 60:
             df = data_treatment.create_high_low_df(self.market_value_60seconds)
-            colors = {'increase':'red', 'decrease':'green'}
+            colors = {'decrease':'red', 'increase':'green'}
             
             self.real_time_graph.clear()
             self.real_time_graph.bar(df.time_values, df.Diff_High_Low, bottom=df.Low_values, color=df.color)
