@@ -8,14 +8,14 @@ Created on Wed May  6 21:01:04 2020
 import tkinter as tk
 from tkinter import ttk
 import matplotlib
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 import matplotlib.animation as animation
 from matplotlib import pyplot as plt
 from matplotlib import style
 from selenium import webdriver
 from time import sleep
-import scrapping_celenium
+import data_treatment
 
 matplotlib.use("TkAgg")
 style.use('ggplot')
@@ -62,83 +62,118 @@ class StartPage(tk.Frame):
     def __init__(self, parent, controller):
         
         tk.Frame.__init__(self,parent)
-        label = tk.Label(self, text="Start Page")
+        label = tk.Label(self, text="Home Page")
         label.pack(pady=10,padx=10)
 
         # Button that open the S&P 500 graph
-        sp500_button = ttk.Button(self, text="Graph Page",
+        sp500_button = ttk.Button(self, text="S&P 500",
                             command=lambda: controller.show_frame(SP500))
         sp500_button.pack()
         
-        btc_button = ttk.Button(self, text="Graph Page",
+        btc_button = ttk.Button(self, text="Bitcoin",
                             command=lambda: controller.show_frame(BtcApp))
         btc_button.pack()
  
 # Page with the S&P500 graph
 class SP500(tk.Frame):
     # Figure wher the graph will be
-    f = Figure(figsize=(5,4), dpi=100)
+    f = Figure(figsize=(7,7), dpi=100)
+    gs = f.add_gridspec(2, 1)
+    f.subplots_adjust(left = 0.1, bottom = 0.1, right = 0.9, top = 0.9, wspace = 0, hspace = 0.5)
     
-    # Subplot of the figure
-    graph = f.add_subplot(111)
+    # Subplots of the figure
+    real_time_graph = f.add_subplot(gs[0, 0])
+    year_graph = f.add_subplot(gs[1, 0])
     
     # List of the values of the S&P500 and the time of each value
     market_values = []
     time_values = []
+    
+    #List of values for 60 seconds
+    market_value_60seconds = []
 
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
+
+        # Separate the window in 2 frames
+        top_frame = tk.Frame(self)
+        bottom_frame = tk.Frame(self)
         
-        # Name of the frame
-        label = tk.Label(self, text="Graph Page!")
+        # Name of the window
+        label = tk.Label(top_frame, text="S&P 500")
         label.pack(pady=10,padx=10)
         
         # Button that go to the home page
-        home_button = tk.ttk.Button(self, text="Back to Home", command=lambda: controller.show_frame(StartPage))
-        home_button.pack()
-
-        
-        canvas = FigureCanvasTkAgg(self.f, self)
-        canvas.draw()
-        canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
-
-        toolbar = NavigationToolbar2Tk(canvas, self)
-        toolbar.update()
-        canvas._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
-        self.ani = animation.FuncAnimation(self.f, self.animate, interval=1000)
+        home_button = tk.ttk.Button(top_frame, text="Home page", command=lambda: controller.show_frame(StartPage))
+        home_button.pack(side=tk.LEFT)
         
         self.start_pause_flag = False
         
-        start_pause_button = tk.ttk.Button(self, text="Start", command=lambda: self.start_pause())
-        start_pause_button.pack()
+        # Button to start and pause the graph 
+        start_pause_button = tk.ttk.Button(top_frame, text="Start/Pause", command=lambda: self.start_pause())
+        start_pause_button.pack(side=tk.LEFT)
         
-        save_button = tk.ttk.Button(self, text='save', command=lambda: scrapping_celenium.save_to_csv(self.market_values, self.time_values))
-        save_button.pack()
+        # Create a save button
+        save_button = tk.ttk.Button(top_frame, text='save', command=lambda: data_treatment.save_to_csv(self.market_values, self.time_values))
+        save_button.pack(side=tk.LEFT)
+        
+        # Put the graph in the frame
+        canvas = FigureCanvasTkAgg(self.f, bottom_frame)
+        canvas.draw()
+        canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+        
+        # Anime the graph
+        self.ani = animation.FuncAnimation(self.f, self.animate, interval=1)
+        
+        #We fill the second graph
+        self.year_graph.plot(data_treatment.df_year['Date'], data_treatment.df_year['Adj Close'], color = 'black', label = 'precise values')
+        self.year_graph.plot(data_treatment.df_year['moving_average20'], color = 'red', label = '20 d. moving arg')
+        self.year_graph.plot(data_treatment.df_year['moving_average50'], color = 'green', label = '50 d. moving arg')
+        self.year_graph.set_xticks(range(0, len(data_treatment.df_year['Date']), 30))
+        self.year_graph.set_title("S&P 500 evolution for one year")
+        self.year_graph.legend()
+        top_frame.pack(fill = 'x')
+        bottom_frame.pack(fill = 'x')
+        
     """
     Fuction that will be use in animation.FuncAnimation to animate the graph
     param[in] self instance of SP500: we will use the graph of the instance
     param[in] interval: frame refresh interval
     """    
     def animate(self, interval):
+        sleep(1)
         
-        # Index of S&P500 at time t
-        market_value = str(scrapping_celenium.driver.find_element_by_xpath("/html/body/div[4]/div/div[3]/div[3]/div[1]/div[2]/div/div[1]/div/table/tbody/tr[5]/td[1]/span[1]").text)
+        # Indice of S&P500 at time t
+        market_value = str(data_treatment.driver.find_element_by_xpath("/html/body/div[4]/div/div[3]/div[3]/div[1]/div[2]/div/div[1]/div/table/tbody/tr[5]/td[1]/span[1]").text)
         
         # Data Frame with all the index of the session
-        df = scrapping_celenium.create_market_dataFrame(market_value, self.market_values, self.time_values)
+        df_session = data_treatment.create_market_dataFrame(market_value, self.market_values, self.time_values)
         
-        # We fill the graph
-        self.graph.clear()
-        self.graph.plot(df.time_values, df.market_values)
-        self.graph.set_xticks(range(0,len(self.time_values),3600))
-        self.graph.tick_params('x', rotation = 90)
+        market_value = market_value.replace(',', '')
+        self.market_value_60seconds.append(float(market_value))
+        
+        # We fill the first graph every 60 seconds
+        if len(self.market_value_60seconds) == 60:
+            df = data_treatment.create_high_low_df(self.market_value_60seconds)
+            colors = {'increase':'red', 'decrease':'green'}         
+            labels = list(colors.keys())
+            
+            self.real_time_graph.clear()
+            self.real_time_graph.bar(df.time_values, df.Diff_High_Low, bottom=df.Low_values, color=df.color)
+            self.real_time_graph.set_xticks(range(0,len(self.time_values),3600))
+            self.real_time_graph.tick_params('x', rotation = 90)
+            self.real_time_graph.set_ylim(min(df.Low_values) - 10, max(df.High_values) + 10)
+            self.real_time_graph.set_title("S&P 500 real time evolution")
+            for i, j in colors.items(): #Loop over color dictionary
+                self.real_time_graph.bar(df.time_values, df.Diff_High_Low, width=0,color=j,label=i)
+            self.real_time_graph.legend()
+            self.market_value_60seconds.clear()
         
     """
     Function to stop or continue graph display
     param[in] self Instance of SP500: We need to change the start/pause flag 
     """
     def start_pause(self):
-        print(self.start_pause_flag)
         if self.start_pause_flag == True:
             self.ani.event_source.start()
             self.start_pause_flag = False   
@@ -146,16 +181,15 @@ class SP500(tk.Frame):
         else :
             self.ani.event_source.stop()
             self.start_pause_flag = True
-        print(self.start_pause_flag)
 
 class BtcApp(tk.Frame):
     
      def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
-        label = tk.Label(self, text="Graph Page!")
+        label = tk.Label(self, text="Bitcoin")
         label.pack(pady=10,padx=10)
 
-        button1 = ttk.Button(self, text="Back to Home", command=lambda: controller.show_frame(StartPage))
+        button1 = ttk.Button(self, text="Home page", command=lambda: controller.show_frame(StartPage))
         button1.pack()
         
         self.running = False
