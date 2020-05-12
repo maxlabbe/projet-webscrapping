@@ -7,15 +7,11 @@ Created on Fri May  1 20:21:43 2020
 
 
 import datetime
-from selenium import webdriver
 import pandas as pd
 import time
 import numpy as np
 
 # Fetch the website
-driver = webdriver.Firefox()
-driver.get("https://www.cnbc.com/quotes/?symbol=.SPX")
-
 
 """
 Create a data frame with the values of the S&P500 and the time of each value during the session
